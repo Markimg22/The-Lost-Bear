@@ -3,68 +3,79 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
-public class PlayerController : MonoBehaviour
-{
-    #region Fields
+public class PlayerController : MonoBehaviour {
 
-    private float _speedForce = 5f;
-    private float _jumpForce = 10f;
-    private Rigidbody2D _rigid;
+  private GameObject _slotRun;
+  private Rigidbody2D _rigid;
+  private Animator _animator;
+  private Transform _floorPoint;
+  private float _speed = 2f;
+  private float _jumpForce = 5f;
+  private bool _isGrounded;
+  private int _numCommands = 0;
+  private int _currentCommand = 0;
 
-    public GameObject slotCommands;
+  
+  private void Awake() {
+    _rigid = GetComponent<Rigidbody2D>();    
+    _animator = GetComponent<Animator>();
+    _slotRun = GameObject.FindWithTag("Slot Run");
+    _floorPoint = transform.Find("FloorPoint");  
+  }
 
-    #endregion
+  private void Update() {
+    // Is Grounded?
+    _isGrounded = Physics2D.OverlapCircle(_floorPoint.position, 0.025f, LayerMask.GetMask("Ground"));
+  }
 
+  private void LateUpdate() {
+    // Animations
+    _animator.SetBool("Idle", _rigid.velocity == Vector2.zero);
+    _animator.SetBool("isGrounded", _isGrounded);
+    _animator.SetFloat("VerticalVelocity", _rigid.velocity.y);
+  }
 
+  public void ButtonRun() {   
+    _numCommands = _slotRun.transform.childCount;
+    _currentCommand = 0;
 
-    #region Unity
+    RunCommands();
+  }
 
-    private void Awake() 
-    {
-        _rigid = GetComponent<Rigidbody2D>();    
+  private void RunCommands() {
+    GameObject block = _slotRun.transform.GetChild(_currentCommand).gameObject;
+
+    switch(block.tag) {
+      case "Walk":
+          StartCoroutine("Walk");
+          break;
+
+      case "Jump":
+          StartCoroutine("Jump");
+          break;
     }
+  }
 
-    #endregion
+  private IEnumerator Walk() {
+    _rigid.velocity = Vector2.right * _speed;
+    yield return new WaitForSeconds(0.5f);
+    _rigid.velocity = Vector2.zero;
 
+    _currentCommand++;
 
-
-    #region Button
-
-    public void ButtonRun()
-    {
-        for( int i = 0; i < slotCommands.transform.childCount; i++ )
-        {
-            Transform block = slotCommands.transform.GetChild( i );
-
-            switch( block.name )
-            {
-                case "Command Walk":
-                    Walk();
-                    break;
-                
-                case "Command Jump":
-                    Jump();
-                    break;
-            }
-        }
+    if(_currentCommand < _numCommands) {
+        Invoke("RunCommands", 0f); 
     }
+  }
 
-    #endregion
+  private IEnumerator Jump() {
+    _rigid.AddForce(new Vector2(0.2f, 1f) * _jumpForce, ForceMode2D.Impulse);
+    yield return new WaitForSeconds(0.5f);
 
+    _currentCommand++;
 
-
-    #region Methods Controller
-
-    public void Walk()
-    {
-        _rigid.AddForce( Vector2.right * _speedForce, ForceMode2D.Impulse );
+    if(_currentCommand < _numCommands) {
+      Invoke("RunCommands", 0f);
     }
-
-    public void Jump()
-    {
-        _rigid.AddForce( Vector2.up * _jumpForce, ForceMode2D.Impulse );
-    }
-
-    #endregion
-
+  }
 }
